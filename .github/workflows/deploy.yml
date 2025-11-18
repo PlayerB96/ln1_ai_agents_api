@@ -1,0 +1,30 @@
+name: 🚀 Deploy automático a VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted  # ✅ Se ejecuta directamente en tu VPS
+
+    steps:
+      - name: 🧩 Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: 🚀 Deploy al servidor VPS
+        run: |
+          cd /var/www/API_LN1_FASTAPI
+          echo "📦 Actualizando repositorio..."
+          git pull origin main
+          
+          echo "🧱 Reconstruyendo contenedores..."
+          docker compose up --build -d
+
+      - name: 🧹 Limpiar imágenes antiguas (seguro)
+        run: |
+          echo "🧹 Eliminando imágenes no utilizadas (excepto las con label keep=true)..."
+          docker image prune -a -f --filter "label!=keep"
+          
+          echo "✅ Limpieza completada"
