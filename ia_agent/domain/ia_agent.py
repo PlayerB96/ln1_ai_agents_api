@@ -16,4 +16,3 @@ def process_agent_message(data: IaRequest):
     """
     controller = IAController(data)
     return controller.handle_request()
-

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 import asyncio
 from fastapi.responses import JSONResponse
 from configparser import ConfigParser
+import redis 
 
 # Leer config.ini
 config = ConfigParser()
@@ -22,6 +23,24 @@ conf = ConnectionConfig(
 )
 
 fm = FastMail(conf)
+
+
+# -------------------------
+# Configuración Redis
+# -------------------------
+REDIS_HOST = config.get("REDIS", "host")
+REDIS_PORT = config.getint("REDIS", "port")
+REDIS_PASSWORD = config.get("REDIS", "password")
+REDIS_DB = config.getint("REDIS", "db")
+
+redis_client = redis.Redis(
+    host=REDIS_HOST,
+    port=REDIS_PORT,
+    password=REDIS_PASSWORD,
+    db=REDIS_DB,
+    decode_responses=True  # devuelve strings en lugar de bytes
+)
+
 
 
 # =========================
