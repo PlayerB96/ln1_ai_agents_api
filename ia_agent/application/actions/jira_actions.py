@@ -2,34 +2,67 @@ import requests
 from ia_agent.application.actions.base_action import BaseAction
 from sistemas.application.jira_service import JiraService
 
-class DocumentarAction(BaseAction):
-    required_params = ["proyecto_id"]
-    desc = "Listar todas las épicas de un proyecto con mensaje amigable generado por GraphQL Worker"
+class JiraAction(BaseAction):
+    """
+    Action multiuso: epicas, sprints, subtareas, tareas, etc.
+    Funciona leyendo dinámicamente la acción y parámetros.
+    """
 
     def __init__(self, jira_service: JiraService, username=None, actions=None):
         super().__init__()
         self.jira_service = jira_service
         self.username = username or "Usuario"
         self.actions = actions or {}
-        # URL de tu Worker GraphQL
         self.worker_url = "https://my-graphql-worker.soporteti-41b.workers.dev/"
 
+        # Mapa dinámico acción → método JIRA
+        self.ACTION_METHODS = {
+            "epicas": {
+                "param": "proyecto_id",
+                "method": self.jira_service.get_project_epics
+            },
+            # "sprints": {
+            #     "param": "epic_id",
+            #     "method": self.jira_service.get_epic_sprints
+            # },
+            # "subtareas": {
+            #     "param": "issue_id",
+            #     "method": self.jira_service.get_issue_subtasks
+            # }
+        }
+
     def execute(self, params: dict):
-        # -----------------------------
-        # 1️⃣ Validar parámetros
-        # -----------------------------
-        print("Validando parámetros para ... , params:", params)
-        self.validate_params(params)
-        proyecto_id = params["proyecto_id"]
+        action_name = params.get("_action")  # viene desde el orchestrator
+        if not action_name:
+            return self.format_response(data={}, msg="No se recibió acción a ejecutar")
 
-        # -----------------------------
-        # 2️⃣ Obtener datos reales desde JIRA
-        # -----------------------------
-        projects = self.jira_service.get_project_epics(proyecto_id)
+        # 1️⃣ Validar que la acción existe
+        if action_name not in self.ACTION_METHODS:
+            return self.format_response(
+                data={},
+                msg=f"La acción '{action_name}' no está definida en JiraAction"
+            )
 
-        # -----------------------------
-        # 3️⃣ Preparar query GraphQL para el Worker (nueva mutation)
-        # -----------------------------
+        config = self.ACTION_METHODS[action_name]
+        param_name = config["param"]
+        method = config["method"]
+
+        # 2️⃣ Validar parámetro
+        if param_name not in params or not params[param_name]:
+            return self.format_response(
+                data={},
+                msg=f"Falta el parámetro requerido '{param_name}' para la acción '{action_name}'"
+            )
+
+        param_value = params[param_name]
+
+        # 3️⃣ Ejecutar acción real en Jira
+        try:
+            result_data = method(param_value)
+        except Exception as e:
+            return self.format_response(data={}, msg=f"Error obteniendo datos de Jira: {e}")
+
+        # 4️⃣ Llamar al Worker GraphQL
         query = """
         mutation GenerarResumenProyecto($actions: JSON!, $username: String!, $proyectos: JSON!) {
           generarResumenProyecto(actions: $actions, username: $username, proyectos: $proyectos) {
@@ -44,49 +77,18 @@ class DocumentarAction(BaseAction):
         variables = {
             "username": self.username,
             "actions": self.actions,
-            "proyectos": projects  # enviamos los datos de JIRA al Worker
+            "proyectos": result_data
         }
 
-        payload = {
-            "query": query,
-            "variables": variables
-        }
-
-        # -----------------------------
-        # 4️⃣ Consumir Worker GraphQL
-        # -----------------------------
         try:
-            response = requests.post(self.worker_url, json=payload, timeout=30)
+            response = requests.post(self.worker_url, json={"query": query, "variables": variables}, timeout=30)
             response.raise_for_status()
-        except requests.RequestException as e:
+            worker_data = response.json().get("data", {}).get("generarResumenProyecto", {})
+
             return self.format_response(
-                data={"projects": projects},
-                msg=f"No se pudo conectar al Worker: {e}"
-            )
-
-        # -----------------------------
-        # 5️⃣ Procesar respuesta del Worker
-        # -----------------------------
-        try:
-            result = response.json()
-            worker_data = result.get("data", {}).get("generarResumenProyecto", {})
-
-            if not worker_data.get("status"):
-                return self.format_response(
-                    data={"projects": projects},
-                    msg=worker_data.get("msg", "Error desconocido al generar mensaje amigable")
-                )
-
-            # -----------------------------
-            # 6️⃣ Retornar datos + mensaje amigable
-            # -----------------------------
-            return self.format_response(
-                data=worker_data.get("data", {"projects": projects}),
-                msg=worker_data.get("msg", f"Documentando proyecto_id: {proyecto_id}")
+                data=worker_data.get("data", result_data),
+                msg=worker_data.get("msg", f"Resultado de acción '{action_name}'")
             )
 
         except Exception as e:
-            return self.format_response(
-                data={"projects": projects},
-                msg=f"Error procesando respuesta del Worker: {e}"
-            )
+            return self.format_response(data=result_data, msg=f"Error conectando al Worker: {e}")

@@ -29,7 +29,7 @@ class JiraService:
         Obtiene todas las epics de un proyecto usando la API moderna de Jira (2024+).
         """
         url = f"{self.base_url}/rest/api/3/search/jql"
-        jql_query = f'project = "{project_key}" AND issuetype = Epic ORDER BY created DESC'
+        jql_query = f'project = "{project_key}" AND issuetype = Epic AND statusCategory != Done ORDER BY created DESC'
 
         payload = {
             "jql": jql_query,
