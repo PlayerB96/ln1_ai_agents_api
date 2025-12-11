@@ -1,6 +1,6 @@
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
-from ia_agent.application.orchestrator_service import OrchestratorService
+from ia_agent.application.orchestrator.orchestrator_service import OrchestratorService
 from ia_agent.domain.dataModel.model import IaRequest
 
 class IAController:
@@ -14,8 +14,9 @@ class IAController:
             print("Iniciando procesamiento de la solicitud IA...")
             print(f"Entrada del usuario: {self.message}, Área: {self.area}")
             orchestrator = OrchestratorService(self.message, self.area, self.username )
+            print("Llamando al orquestador...")
             result = orchestrator.process()
-
+            print("Resultado del procesamiento:", result)
             return JSONResponse(
                 status_code=200,
                 content={"status": True, "msg": "Solicitud procesada correctamente", "data": result}

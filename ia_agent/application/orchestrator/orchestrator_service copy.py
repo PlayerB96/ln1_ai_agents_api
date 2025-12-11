@@ -4,7 +4,7 @@ from gemini.application.gemini_service import GeminiService
 from gemini.domain.dataModel.model import GeminiRequest
 from sistemas.application.jira_service import JiraService
 from ia_agent.application.actions.saludar_actions import SaludarAction
-from .actions.jira_actions import JiraAction
+from ..actions.jira_actions import JiraAction
 from app import redis_client
 
 
