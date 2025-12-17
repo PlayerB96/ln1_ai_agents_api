@@ -64,7 +64,6 @@ class JiraService:
         """
         url = f"{self.base_url}/rest/api/3/search/jql"
         jql_query = f'parent = "{epic_key}" ORDER BY created DESC'
-        print(f"🔍 Ejecutando JQL: {jql_query}")
 
         payload = {
             "jql": jql_query,
@@ -74,7 +73,6 @@ class JiraService:
 
         try:
             response = requests.post(url, auth=self.auth, json=payload)
-            print(f"🔍 Código de respuesta: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 issues = data.get("issues", [])

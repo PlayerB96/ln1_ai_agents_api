@@ -21,11 +21,18 @@ class OrchestratorGraphService:
         self.graph.add_node("interpret_intent", interpret_intent)
         self.graph.add_node("execute_action", execute_action)
 
+        # # Flujo del grafo
+        # self.graph.set_entry_point("get_actions")
+        # self.graph.add_edge("get_actions", "interpret_intent")
+        # self.graph.add_edge("interpret_intent", "execute_action")
+        # self.graph.add_edge("execute_action", END)
+
         # Flujo del grafo
         self.graph.set_entry_point("get_actions")
-        self.graph.add_edge("get_actions", "interpret_intent")
-        self.graph.add_edge("interpret_intent", "execute_action")
-        self.graph.add_edge("execute_action", END)
+        self.graph.add_edge("get_actions", END)  # 🔴 TESTING: Detiene después de get_actions
+        # self.graph.add_edge("get_actions", "interpret_intent")
+        # self.graph.add_edge("interpret_intent", "execute_action")
+        # self.graph.add_edge("execute_action", END)
 
         # Compilar grafo
         self.app = self.graph.compile()
