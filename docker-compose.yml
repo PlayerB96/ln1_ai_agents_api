@@ -4,8 +4,8 @@ services:
   api_ln1:
     build:
       context: .
-    image: api_ln1_fastapi  # nombre imagen
-    container_name: api_ln1_fastapi  # nombre contenedor
+    image: ln1_agente_ai_fastapi  # nombre imagen
+    container_name: ln1_agente_ai_fastapi  # nombre contenedor
     ports:
       - "8001:8001"
     restart: always

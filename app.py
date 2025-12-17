@@ -1,51 +1,28 @@
-from fastapi import FastAPI, Request, BackgroundTasks
+"""
+API principal para el sistema de orquestación multi-tenant.
+Coordina agentes IA para diferentes áreas de la empresa.
+"""
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
-from pydantic import BaseModel
-import asyncio
+from fastapi_mail import FastMail
 from fastapi.responses import JSONResponse
 from configparser import ConfigParser
-import redis 
+import asyncio
 
-# Leer config.ini
+from infrastructure.config.redis_config import RedisConfig
+from infrastructure.config.email_config import EmailConfig
+
+# Leer configuración
 config = ConfigParser()
 config.read("config.ini")
 
-conf = ConnectionConfig(
-    MAIL_USERNAME=config.get("EMAIL", "smtp_user"),
-    MAIL_PASSWORD=config.get("EMAIL", "smtp_password"),
-    MAIL_FROM=config.get("EMAIL", "smtp_user"),
-    MAIL_PORT=config.getint("EMAIL", "smtp_port"),
-    MAIL_SERVER=config.get("EMAIL", "smtp_server"),
-    MAIL_STARTTLS=config.get("EMAIL", "smtp_secure").lower() == "tls",
-    MAIL_SSL_TLS=config.get("EMAIL", "smtp_secure").lower() == "ssl",
-    USE_CREDENTIALS=True,
-)
+# Configurar email usando módulo centralizado
+fm = FastMail(EmailConfig.get_config())
 
-fm = FastMail(conf)
+# Inicializar cliente Redis (se crea la instancia singleton)
+redis_client = RedisConfig.get_client()
 
-
-# -------------------------
-# Configuración Redis
-# -------------------------
-REDIS_HOST = config.get("REDIS", "host")
-REDIS_PORT = config.getint("REDIS", "port")
-REDIS_PASSWORD = config.get("REDIS", "password")
-REDIS_DB = config.getint("REDIS", "db")
-
-redis_client = redis.Redis(
-    host=REDIS_HOST,
-    port=REDIS_PORT,
-    password=REDIS_PASSWORD,
-    db=REDIS_DB,
-    decode_responses=True  # devuelve strings en lugar de bytes
-)
-
-
-
-# =========================
-# FastAPI principal
-# =========================
+# Configurar FastAPI
 app = FastAPI(
     title=config.get("APP", "title", fallback="API LN1 - AI Agents"),
     description=config.get("APP", "description", fallback="""
@@ -61,8 +38,7 @@ app = FastAPI(
     },
 )
 
-
-# Middleware CORS para permitir acceso desde cualquier dominio
+# Middleware CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -72,9 +48,12 @@ app.add_middleware(
 )
 
 
-# Middleware para manejar timeout global (240s)
+# Middleware de timeout global
 @app.middleware("http")
 async def timeout_middleware(request: Request, call_next):
+    """
+    Middleware que aplica un timeout global de 240 segundos a todas las peticiones.
+    """
     try:
         return await asyncio.wait_for(call_next(request), timeout=240.0)
     except asyncio.TimeoutError:
@@ -89,10 +68,8 @@ async def timeout_middleware(request: Request, call_next):
 
 
 # Incluir routers
-# from sistemas.domain.sistemas import sistemas
-# from gemini.domain.gemini import gemini
 from ia_agent.domain.ia_agent import ia
+from gemini.domain.gemini import gemini
 
-# app.include_router(sistemas, prefix="/api/v1")
-# app.include_router(gemini, prefix="/api/v1")
 app.include_router(ia, prefix="/api/v1")
+app.include_router(gemini, prefix="/api/v1")

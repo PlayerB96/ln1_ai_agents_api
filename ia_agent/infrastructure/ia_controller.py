@@ -1,26 +1,54 @@
+"""
+Controlador de infraestructura para el agente IA.
+Maneja las peticiones HTTP y coordina con el orquestador.
+"""
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
-from ia_agent.application.orchestrator.orchestrator_service import OrchestratorService
+from ia_agent.application.orchestrator.orchestrator_service import OrchestratorGraphService
 from ia_agent.domain.dataModel.model import IaRequest
 
+
 class IAController:
-    def __init__(self, data: IaRequest ):
+    """Controlador para procesar solicitudes del agente IA"""
+    
+    def __init__(self, data: IaRequest):
+        """
+        Inicializa el controlador.
+        
+        Args:
+            data: Datos de la solicitud
+        """
         self.message = data.message
         self.area = data.area
-        self.username = data.username 
+        self.username = data.username
+    
+    def handle_request(self) -> JSONResponse:
+        """
+        Procesa la solicitud del usuario.
         
-    def handle_request(self):
+        Returns:
+            JSONResponse con el resultado del procesamiento
+            
+        Raises:
+            HTTPException: Si ocurre un error durante el procesamiento
+        """
         try:
-            print("Iniciando procesamiento de la solicitud IA...")
-            print(f"Entrada del usuario: {self.message}, Área: {self.area}")
-            orchestrator = OrchestratorService(self.message, self.area, self.username )
-            print("Llamando al orquestador...")
-            result = orchestrator.process()
-            print("Resultado del procesamiento:", result)
+            orchestrator = OrchestratorGraphService()
+            result = orchestrator.process(
+                user_message=self.message,
+                area=self.area,
+                username=self.username
+            )
+            
             return JSONResponse(
                 status_code=200,
-                content={"status": True, "msg": "Solicitud procesada correctamente", "data": result}
+                content={
+                    "status": True,
+                    "msg": "Solicitud procesada correctamente",
+                    "data": result
+                }
             )
+            
         except HTTPException as e:
             raise e
         except Exception as e:

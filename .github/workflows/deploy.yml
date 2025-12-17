@@ -15,7 +15,7 @@ jobs:
 
       - name: 🚀 Deploy al servidor VPS
         run: |
-          cd /var/www/API_LN1_FASTAPI
+          cd /var/www/ln1_ai_agents_api
           echo "📦 Actualizando repositorio..."
           git pull origin main
           

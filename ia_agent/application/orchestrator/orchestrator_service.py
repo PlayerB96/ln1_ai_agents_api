@@ -1,48 +1,44 @@
-import json
-from fastapi import HTTPException
-from sistemas.application.jira_service import JiraService
+from langgraph.graph import StateGraph, END
 
-from .redis_action_store import RedisActionStore
-from .intent_engine import IntentEngine
-from .action_loader import ActionLoader
+from ia_agent.application.orchestrator.orchestrator_nodes import (
+    OrchestratorState,
+    get_actions,
+    interpret_intent,
+    execute_action
+)
 
 
-class OrchestratorService:
+class OrchestratorGraphService:
+    """
+    Orchestrator usando LangGraph (StateGraph)
+    """
 
-    def __init__(self, user_message: str, area: str, username: str):
-        self.user_message = user_message
-        self.area = area
-        self.username = username
-        self.jira_service = JiraService(None)
+    def __init__(self):
+        self.graph = StateGraph(OrchestratorState)
 
-    def process(self):
-        # 1. Obtener acciones desde Redis
-        actions = RedisActionStore.get_all()
+        # Registrar nodos
+        self.graph.add_node("get_actions", get_actions)
+        self.graph.add_node("interpret_intent", interpret_intent)
+        self.graph.add_node("execute_action", execute_action)
 
-        # 2. Interpretar intención con IA
-        interpretation = IntentEngine.interpret(
-            self.user_message,
-            self.area,
-            actions
-        )
+        # Flujo del grafo
+        self.graph.set_entry_point("get_actions")
+        self.graph.add_edge("get_actions", "interpret_intent")
+        self.graph.add_edge("interpret_intent", "execute_action")
+        self.graph.add_edge("execute_action", END)
 
-        action_name = interpretation.get("action")
-        params = interpretation.get("params", {})
+        # Compilar grafo
+        self.app = self.graph.compile()
 
-        # 3. Cargar handler dinámico
-        handler_cls = ActionLoader.get(action_name)
+    def process(self, user_message: str, area: str, username: str):
+        initial_state: OrchestratorState = {
+            "user_message": user_message,
+            "area": area,
+            "username": username,
+            "actions": {},
+            "interpretation": {},
+            "result": {}
+        }
 
-        if not handler_cls:
-            return {"status": False, "msg": f"Acción no reconocida: {action_name}"}
-
-        # 4. Crear instancia del handler
-        handler = handler_cls(
-            jira_service=self.jira_service,
-            actions=actions,
-            username=self.username
-        )
-
-        params["_action"] = action_name
-
-        # 5. Ejecutar acción real
-        return handler.execute(params)
+        final_state = self.app.invoke(initial_state)
+        return final_state["result"]

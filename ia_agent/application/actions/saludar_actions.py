@@ -1,27 +1,49 @@
-import requests
+"""
+Acción de saludo inicial al usuario.
+Genera un saludo personalizado usando Cloudflare Worker.
+"""
+from typing import Dict, Any, Optional
 from ia_agent.application.actions.base_action import BaseAction
+from infrastructure.adapters.cloudflare_worker_adapter import CloudflareWorkerAdapter
+
 
 class SaludarAction(BaseAction):
-    desc = "Genera un saludo cálido y amigable, mencionando las acciones disponibles para el usuario."
-
-    def __init__(self, jira_service=None, actions=None, username=None):
+    """
+    Acción que genera un saludo cálido y amigable,
+    mencionando las acciones disponibles para el usuario.
+    """
+    
+    def __init__(
+        self, 
+        actions: Optional[Dict[str, Any]] = None, 
+        username: Optional[str] = None,
+        **kwargs
+    ):
+        """
+        Inicializa la acción de saludo.
+        
+        Args:
+            actions: Diccionario de acciones disponibles
+            username: Nombre del usuario
+            **kwargs: Argumentos adicionales (ignorados)
+        """
         super().__init__()
-        self.jira_service = jira_service
-        self.actions = actions or {}   # acciones dinámicas desde KV
+        self.actions = actions or {}
         self.username = username or "Usuario"
-        # URL de tu Worker GraphQL
-        self.worker_url = "https://my-graphql-worker.soporteti-41b.workers.dev/"
-
-    def execute(self, params=None):
+        self.worker = CloudflareWorkerAdapter()
+    
+    def execute(self, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Genera un saludo llamando al Worker GraphQL.
-        params se puede usar si quieres pasar datos adicionales, pero no es obligatorio.
+        
+        Args:
+            params: Parámetros adicionales (opcional)
+            
+        Returns:
+            Dict con el saludo generado
         """
-
-        # -----------------------------
-        # 1️⃣ Preparar la query GraphQL
-        # -----------------------------
-        query = """
+        # Preparar la mutación GraphQL
+        mutation = """
         mutation GenerarSaludo($actions: JSON!, $username: String!) {
           generarSaludo(actions: $actions, username: $username) {
             status
@@ -31,57 +53,44 @@ class SaludarAction(BaseAction):
           }
         }
         """
-
+        
         variables = {
             "username": self.username,
             "actions": self.actions
         }
-
-        payload = {
-            "query": query,
-            "variables": variables
-        }
-
-        # -----------------------------
-        # 2️⃣ Hacer request al Worker
-        # -----------------------------
+        
+        # Llamar al worker
         try:
-            response = requests.post(
-                self.worker_url,
-                json=payload,
-                timeout=30  # timeout de 30 segundos
-            )
-            response.raise_for_status()
-        except requests.RequestException as e:
-            # Si falla la conexión con el Worker
-            return self.format_response(
-                data={"opciones": list(self.actions.keys())},
-                msg=f"No se pudo conectar al Worker: {e}"
-            )
-
-        # -----------------------------
-        # 3️⃣ Procesar respuesta
-        # -----------------------------
-        try:
-            result = response.json()
-            data = result.get("data", {}).get("generarSaludo", {})
-            if not data.get("status"):
-                # Si el Worker devolvió error
+            result = self.worker.call_mutation(mutation, variables)
+            
+            # Verificar si hubo error en la llamada
+            if isinstance(result, dict) and not result.get("status", True):
                 return self.format_response(
                     data={"opciones": list(self.actions.keys())},
+                    status=False,
+                    msg=result.get("msg", "Error al generar saludo")
+                )
+            
+            # Extraer datos de la respuesta GraphQL
+            data = result.get("generarSaludo", {})
+            
+            if not data.get("status"):
+                return self.format_response(
+                    data={"opciones": list(self.actions.keys())},
+                    status=False,
                     msg=data.get("msg", "Error desconocido al generar saludo")
                 )
-
-            # -----------------------------
-            # 4️⃣ Retornar saludo formateado
-            # -----------------------------
+            
+            # Retornar saludo formateado
             return self.format_response(
                 data=data.get("data", {"opciones": list(self.actions.keys())}),
+                status=True,
                 msg=data.get("msg", "")
             )
-
+            
         except Exception as e:
             return self.format_response(
                 data={"opciones": list(self.actions.keys())},
-                msg=f"Error procesando respuesta del Worker: {e}"
+                status=False,
+                msg=f"Error inesperado: {str(e)}"
             )
