@@ -3,7 +3,7 @@ Modelos de datos para el agente IA.
 Define las estructuras de entrada/salida de la API.
 """
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 
 
 class IaRequest(BaseModel):
@@ -22,4 +22,14 @@ class IaRequest(BaseModel):
         None, 
         example="Bryan Rafael",
         description="Nombre del usuario que realiza la solicitud"
+    )
+    company: str = Field(
+        default="ln1",
+        example="ln1",
+        description="Identificador de la compañía/tenant"
+    )
+    tags: Optional[List[str]] = Field(
+        default=None,
+        example=["jira", "proyecto"],
+        description="Tags opcionales para filtrar acciones específicas"
     )

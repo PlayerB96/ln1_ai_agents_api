@@ -6,6 +6,10 @@ from gemini.domain.dataModel.model import GeminiRequest
 
 class GeminiService:
 
+    MODEL_LITE = "gemini-2.5-flash-lite"
+    MODEL_FULL = "gemini-2.5-flash"
+    TOKEN_THRESHOLD = 4000  # Umbral de tokens para cambiar a modelo full
+
     def __init__(self, request: GeminiRequest = None):
         self.request = request
 
@@ -44,6 +48,7 @@ class GeminiService:
                 self.build_prompt(),
                 generation_config={
                     "temperature": self.request.temperature,
+                    "max_output_tokens": 512, 
                 }
             )
 
@@ -53,16 +58,26 @@ class GeminiService:
         # Validar texto
         try:
             text = response.text.strip()
-
+            usage = response.usage_metadata
+            print(f"📊 Uso de tokens: {usage.total_token_count} (modelo: {self.request.model})")
+            
             if not text:
                 raise ValueError("Gemini devolvió una respuesta vacía.")
 
+            # Devolver datos sin tomar decisiones de retry
+            # La lógica de cambio de modelo está en IntentEngine
             return {
                 "ok": True,
                 "model": self.request.model,
                 "question": self.request.question,
                 "answer": text,
+                "usage": {
+                    "total_tokens": usage.total_token_count,
+                    "prompt_tokens": usage.prompt_token_count,
+                    "candidates_tokens": usage.candidates_token_count
+                },
                 "raw": response.to_dict(),   # útil para debug
+
             }
 
         except Exception as e:

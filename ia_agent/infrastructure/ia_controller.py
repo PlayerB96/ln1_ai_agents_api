@@ -18,9 +18,7 @@ class IAController:
         Args:
             data: Datos de la solicitud
         """
-        self.message = data.message
-        self.area = data.area
-        self.username = data.username
+        self.data = data  # Almacena todo el objeto
     
     def handle_request(self) -> JSONResponse:
         """
@@ -34,18 +32,21 @@ class IAController:
         """
         try:
             orchestrator = OrchestratorGraphService()
-            result = orchestrator.process(
-                user_message=self.message,
-                area=self.area,
-                username=self.username
-            )
+            # Pasar datos como dict - escalable
+            result = orchestrator.process(**self.data.model_dump())
+            
+            # Respetar el status que viene del orquestador
+            # Si el result ya tiene status, usarlo; si no, asumir éxito
+            result_status = result.get("status", True)
+            result_msg = result.get("msg", "Solicitud procesada correctamente")
+            result_data = result.get("data", {})
             
             return JSONResponse(
                 status_code=200,
                 content={
-                    "status": True,
-                    "msg": "Solicitud procesada correctamente",
-                    "data": result
+                    "status": result_status,
+                    "msg": result_msg,
+                    "data": result_data
                 }
             )
             
