@@ -70,6 +70,8 @@ async def timeout_middleware(request: Request, call_next):
 # Incluir routers
 from ia_agent.domain.ia_agent import ia
 from gemini.domain.gemini import gemini
+from runner.domain.runner import runner
 
 app.include_router(ia, prefix="/api/v1")
 app.include_router(gemini, prefix="/api/v1")
+app.include_router(runner, prefix="/api/v1")
