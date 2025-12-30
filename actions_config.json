@@ -1,0 +1,200 @@
+{
+  "saludar": {
+    "handler": "saludar",
+    "area": "global",
+    "tags": ["saludo", "bienvenida", "conversación"],
+    "description": "Saluda al usuario y responde preguntas generales",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "Nombre del usuario a saludar"
+        },
+        "message": {
+          "type": "string",
+          "description": "Mensaje del usuario"
+        }
+      },
+      "required": []
+    }
+  },
+  "jira": {
+    "handler": "jira",
+    "area": "sistemas",
+    "tags": ["jira", "proyecto", "épicas", "sprints"],
+    "description": "Gestión de proyectos Jira: épicas, sprints, tareas",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "_action": {
+          "type": "string",
+          "enum": ["epicas", "sprints", "subtareas", "tareas"],
+          "description": "Tipo de acción Jira"
+        },
+        "proyecto_id": {
+          "type": "string",
+          "description": "ID del proyecto Jira"
+        },
+        "epic_id": {
+          "type": "string",
+          "description": "ID de la épica"
+        },
+        "sprint_id": {
+          "type": "string",
+          "description": "ID del sprint"
+        }
+      },
+      "required": ["_action", "proyecto_id"]
+    }
+  },
+  "document_modules": {
+    "handler": "document_modules",
+    "area": "global",
+    "tags": [
+      "documentación",
+      "módulos",
+      "proyecto",
+      "arquitectura"
+    ],
+    "description": "Documentar módulos y estructura de un proyecto de software",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "project_name": {
+          "type": "string",
+          "description": "Nombre del proyecto a documentar"
+        },
+        "repository_url": {
+          "type": "string",
+          "description": "URL del repositorio Git"
+        },
+        "access_token": {
+          "type": "string",
+          "description": "Token de acceso al repositorio"
+        },
+        "description": {
+          "type": "string",
+          "description": "Descripción del proyecto"
+        },
+        "controllers": {
+          "type": "array",
+          "description": "Lista de controladores del proyecto",
+          "items": {
+            "type": "string"
+          }
+        },
+        "modules": {
+          "type": "array",
+          "description": "Módulos principales del proyecto",
+          "items": {
+            "type": "string"
+          }
+        },
+        "key_paths": {
+          "type": "array",
+          "description": "Rutas clave del proyecto",
+          "items": {
+            "type": "string"
+          }
+        },
+        "languages": {
+          "type": "array",
+          "description": "Lenguajes de programación utilizados",
+          "items": {
+            "type": "string"
+          }
+        },
+        "frameworks": {
+          "type": "array",
+          "description": "Frameworks utilizados",
+          "items": {
+            "type": "string"
+          }
+        },
+        "external_apis": {
+          "type": "array",
+          "description": "APIs externas utilizadas",
+          "items": {
+            "type": "string"
+          }
+        },
+        "databases": {
+          "type": "array",
+          "description": "Bases de datos utilizadas",
+          "items": {
+            "type": "string"
+          }
+        },
+        "format": {
+          "type": "string",
+          "description": "Formato de salida (markdown, html, pdf)",
+          "enum": [
+            "markdown",
+            "html",
+            "pdf"
+          ]
+        },
+        "documentation_scope": {
+          "type": "object",
+          "description": "Scope de documentación",
+          "properties": {
+            "output_location": {
+              "type": "string",
+              "description": "Ubicación de salida de la documentación"
+            },
+            "include_architecture": {
+              "type": "boolean",
+              "description": "Incluir diagrama de arquitectura"
+            },
+            "include_endpoints": {
+              "type": "boolean",
+              "description": "Incluir documentación de endpoints"
+            },
+            "include_models": {
+              "type": "boolean",
+              "description": "Incluir modelos de datos"
+            },
+            "include_dependencies": {
+              "type": "boolean",
+              "description": "Incluir análisis de dependencias"
+            }
+          }
+        }
+      },
+      "required": ["project_name"]
+    }
+  },
+  "epicas": {
+    "handler": "jira",
+    "area": "sistemas",
+    "tags": ["jira", "épicas"],
+    "description": "Obtener épicas de un proyecto Jira",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "proyecto_id": {
+          "type": "string",
+          "description": "ID del proyecto"
+        }
+      },
+      "required": ["proyecto_id"]
+    }
+  },
+  "sprints": {
+    "handler": "jira",
+    "area": "sistemas",
+    "tags": ["jira", "sprints"],
+    "description": "Obtener sprints de una épica",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "epic_id": {
+          "type": "string",
+          "description": "ID de la épica"
+        }
+      },
+      "required": ["epic_id"]
+    }
+  }
+}

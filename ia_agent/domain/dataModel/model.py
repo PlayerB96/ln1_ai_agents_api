@@ -10,7 +10,7 @@ class IaRequest(BaseModel):
     """Modelo de solicitud para el agente IA"""
     message: str = Field(
         ..., 
-        example="Muéstrame todas las épicas del proyecto SCRUMSIST",
+        example="Muéstrame todas las épicas del proyecto LN1SCRUM",
         description="Mensaje del usuario en lenguaje natural"
     )
     area: str = Field(

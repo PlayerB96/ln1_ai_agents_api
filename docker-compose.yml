@@ -9,3 +9,20 @@ services:
     ports:
       - "8001:8001"
     restart: always
+    
+    # ============================================================
+    # 🔹 Configuración de rotación de logs
+    # ============================================================
+    logging:
+      driver: "json-file"
+      options:
+        # Tamaño máximo por archivo de log
+        max-size: "100m"
+        # Máximo de archivos a retener
+        max-file: "10"
+        # Etiquetar logs para mejor identificación
+        labels: "service=ln1_ai_agents_api"
+        # Opcional: enviar a syslog también
+        # driver: "syslog"
+        # options:
+        #   syslog-address: "udp://localhost:514"

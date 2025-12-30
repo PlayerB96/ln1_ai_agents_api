@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from ia_agent.application.orchestrator.orchestrator_service import OrchestratorGraphService
 from ia_agent.domain.dataModel.model import IaRequest
+from validations.logger import logErrorJson, logSuccess, logInfo
 
 
 class IAController:
@@ -19,6 +20,7 @@ class IAController:
             data: Datos de la solicitud
         """
         self.data = data  # Almacena todo el objeto
+        self.origin = "IAController"
     
     def handle_request(self) -> JSONResponse:
         """
@@ -31,6 +33,8 @@ class IAController:
             HTTPException: Si ocurre un error durante el procesamiento
         """
         try:
+            logInfo(f"Procesando solicitud IA: {self.data.message}", origin=self.origin)
+            
             orchestrator = OrchestratorGraphService()
             # Pasar datos como dict - escalable
             result = orchestrator.process(**self.data.model_dump())
@@ -40,6 +44,8 @@ class IAController:
             result_status = result.get("status", True)
             result_msg = result.get("msg", "Solicitud procesada correctamente")
             result_data = result.get("data", {})
+            
+            logSuccess(f"Solicitud IA procesada: {result_msg}", origin=self.origin, extra_data={"message": self.data.message})
             
             return JSONResponse(
                 status_code=200,
@@ -51,6 +57,18 @@ class IAController:
             )
             
         except HTTPException as e:
+            logErrorJson(
+                error_message=str(e.detail),
+                error_type="HTTPException",
+                origin=self.origin,
+                extra_data={"status_code": e.status_code}
+            )
             raise e
         except Exception as e:
+            logErrorJson(
+                error_message=str(e),
+                error_type=type(e).__name__,
+                origin=self.origin,
+                exception=e
+            )
             raise HTTPException(status_code=500, detail=str(e))

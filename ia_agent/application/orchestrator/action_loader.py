@@ -6,6 +6,7 @@ from typing import Dict, Type, Optional, Any
 from ia_agent.application.actions.base_action import BaseAction
 from ia_agent.application.actions.saludar_actions import SaludarAction
 from ia_agent.application.actions.jira_actions import JiraAction
+from ia_agent.application.actions.document_modules_action import DocumentModulesAction
 
 
 class ActionFactory:
@@ -61,6 +62,7 @@ class ActionFactory:
 # Registro automático de handlers conocidos
 ActionFactory.register("saludar", SaludarAction)
 ActionFactory.register("jira", JiraAction)
+ActionFactory.register("document_modules", DocumentModulesAction)
 
 # Mappings para compatibilidad con estructura actual de Redis
 ActionFactory.register("epicas", JiraAction)
