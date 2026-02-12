@@ -2,10 +2,12 @@
 Utilidades de seguridad para WebSocket.
 Maneja autenticación con Bearer tokens simples.
 """
-from fastapi import WebSocket, status
+from fastapi import WebSocket
 import configparser
 from datetime import datetime
 from pathlib import Path
+
+from websocket.infrastructure.logging.ws_audit_logger import get_ws_audit_logger
 
 # Lee configuración desde config.ini
 config = configparser.ConfigParser()
@@ -28,7 +30,7 @@ class WSSecurityManager:
             websocket: Conexión WebSocket
             
         Returns:
-            dict: Parámetros extraídos (token, code_user, fullname)
+            dict: Parámetros extraídos (token, code_user, fullname, area)
         """
         token = websocket.query_params.get("token")
         if not token:
@@ -37,7 +39,8 @@ class WSSecurityManager:
         return {
             "token": token.strip(),
             "code_user": websocket.query_params.get("code_user", "").strip(),
-            "fullname": websocket.query_params.get("fullname", "").strip()
+            "fullname": websocket.query_params.get("fullname", "").strip(),
+            "area": websocket.query_params.get("area", "general").strip() or "general"
         }
     
     @staticmethod
@@ -68,10 +71,7 @@ class WSSecurityManager:
         try:
             params = WSSecurityManager.extract_params_from_query(websocket)
             token = params["token"]
-            
-            print(f"\n🔐 [VALIDAR TOKEN]")
-            print(f"   Token recibido: '{token}'")
-            print(f"   Token esperado: '{SECRET_TOKEN}'")
+    
             
             # Valida el token
             if not WSSecurityManager.verify_token(token):
@@ -84,9 +84,9 @@ class WSSecurityManager:
             print(f"   ✅ TOKEN VÁLIDO - Aceptando conexión")
             # Retorna datos del usuario con todos los parámetros
             return {
-                "user_id": token,  # El token actúa como identificador
                 "code_user": params["code_user"],
                 "fullname": params["fullname"],
+                "area": params["area"],
                 "authenticated": True
             }
         except ValueError as e:
@@ -97,13 +97,27 @@ class WSSecurityManager:
             }
     
     @staticmethod
-    def log_connection(user_id: str, action: str):
-        """
-        Registra eventos de conexión para auditoría.
-        
-        Args:
-            user_id: ID del usuario (token)
-            action: Acción realizada (connect, disconnect, error)
-        """
-        timestamp = datetime.now().isoformat()
-        print(f"[AUDIT] {timestamp} - User: {user_id} - Action: {action}")
+    def log_connection(
+        code_user: str,
+        action: str,
+        websocket=None,
+        detail: str = None
+    ):
+        data = {
+            "code_user": code_user,
+            "action": action,
+            "detail": detail,
+        }
+
+        if websocket:
+            data.update({
+                "ip": websocket.client.host,
+                "user_agent": websocket.headers.get("user-agent")
+            })
+
+        # Usa nivel ERROR si la acción contiene "ERROR"
+        logger = get_ws_audit_logger()
+        if "ERROR" in action.upper():
+            logger.error(data)
+        else:
+            logger.info(data)

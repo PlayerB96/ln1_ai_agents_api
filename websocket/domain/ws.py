@@ -1,7 +1,9 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from websocket.domain.dataModel.model import WsChatMessageRequest
 from websocket.infrastructure.ws_controller import WSChatController
 from websocket.infrastructure.ws_security import WSSecurityManager
-
+from websocket.utils.utils import WSCode, build_error_response
+ 
 ws = APIRouter()
 
 @ws.websocket("/ws/chat")
@@ -13,54 +15,59 @@ async def ia_agent_ws(websocket: WebSocket):
         - token: Token de autenticación (obligatorio)
         - code_user: Código del usuario (opcional)
         - fullname: Nombre completo del usuario (opcional)
+        - area: Area de operacion (opcional, default: general)
     
     Ejemplo de conexión desde JavaScript:
-        const ws = new WebSocket('ws://localhost:8000/ws/chat?token=secret123&code_user=USER001&fullname=Juan%20Perez');
+        const ws = new WebSocket('ws://localhost:8000/ws/chat?token=secret123&code_user=USER001&fullname=Juan%20Perez&area=ventas');
     """
     # IMPORTANTE: Aceptar PRIMERO para hacer el handshake WebSocket
     await websocket.accept()
     
     # 1️⃣ Ahora SI validamos después de aceptar
     user_data = await WSSecurityManager.authenticate_websocket(websocket)
-    
     # Si la autenticación falló, cierra con código 1008
     if not user_data["authenticated"]:
         await websocket.close(code=1008, reason=user_data.get("error", "Autenticación rechazada"))
         return
     
     # ✅ Auth pasó, continúa normally
-    user_id = user_data["user_id"]
     code_user = user_data["code_user"]
     fullname = user_data["fullname"]
-    
-    print(f"🟢 Usuario {fullname or code_user or user_id[:20]}... conectado al WebSocket")
-    WSSecurityManager.log_connection(user_id, f"connect - code_user: {code_user}, fullname: {fullname}")
+    area = user_data["area"]
+
+    # Validar que code_user no esté vacío
+    if not code_user:
+        WSSecurityManager.log_connection("UNKNOWN", "ERROR - code_user vacío o no enviado", websocket)
+        await websocket.close(code=1008, reason="code_user es obligatorio")
+        return
+
+    WSSecurityManager.log_connection(code_user, f"connect - code_user: {code_user}, fullname: {fullname}", websocket)
 
     try:
         while True:
-            # 2️⃣ Recibe TEXTO PLANO desde el frontend
             raw_message = await websocket.receive_text()
-            print(f"📩 [{user_id}] Mensaje recibido: {raw_message[:50]}...")
-
-            # 3️⃣ Procesa mediante el controlador (CON seguridad y parámetros del usuario)
-            controller = WSChatController(
+            # ✅ Creamos el payload Pydantic
+            payload = WsChatMessageRequest(
                 message=raw_message,
-                user_id=user_id,
                 code_user=code_user,
-                fullname=fullname
+                fullname=fullname,
+                area=area,
             )
-            result = controller.process_request()
+            # Enviamos el payload al controlador
+            controller = WSChatController(payload=payload)
+            result = controller.wsController()
 
-            # 4️⃣ Envía respuesta al cliente
-            await websocket.send_json(result)
+            # Convertir modelo Pydantic a dict para enviar como JSON
+            await websocket.send_json(result.model_dump(exclude_none=True))
 
     except WebSocketDisconnect:
-        print(f"🔴 Usuario {user_id} desconectado")
-        WSSecurityManager.log_connection(user_id, "disconnect")
+        WSSecurityManager.log_connection(code_user, "disconnect", websocket)
     except Exception as e:
-        print(f"❌ Error en WebSocket [{user_id}]: {str(e)}")
-        WSSecurityManager.log_connection(user_id, f"error: {str(e)}")
-        await websocket.send_json({
-            "error": "Conexión interrumpida",
-            "detail": str(e)
-        })
+        WSSecurityManager.log_connection(code_user, f"ERROR: {str(e)}", websocket)
+        await websocket.send_json(
+            build_error_response(
+                error="Conexión interrumpida",
+                detail=str(e),
+                ws_code=WSCode.INTERNAL_ERROR
+            ).model_dump(exclude_none=True)
+        )

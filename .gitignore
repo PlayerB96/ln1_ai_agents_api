@@ -2,3 +2,4 @@ myenv/
 __pycache__/
 venv/
 config.ini
+logs/ws_audit.log
