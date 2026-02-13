@@ -28,7 +28,6 @@ class LangGraphResponse:
                 if key_type == "ReJSON-RL":
                     json_data = redis_client.execute_command('JSON.GET', key)
                     actions_data = json.loads(json_data) if isinstance(json_data, str) else json_data
-                    print(actions_data)
                 elif key_type == "string":
                     json_str = redis_client.get(key)
                     actions_data = json.loads(json_str) if json_str else None
@@ -59,9 +58,7 @@ class LangGraphResponse:
                     if not isinstance(tags, list):
                         tags = [tags]
                     tags_lower = [tag.lower() for tag in tags]
-                    
-                    print(f"    - {action_id}: tags={tags_lower}")
-                    
+                                        
                     # Si hay coincidencia
                     if intent_lower in tags_lower:
                         matched_actions.append({

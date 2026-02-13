@@ -30,6 +30,8 @@ def build_prompt_classifier_node(context: NodeContext):
 
             enriched_prompt = classifier_prompt.replace(
                 "{user_message}", state.user_message
+            ).replace(
+                "{fullname}", state.payload.fullname
             )
 
             state.metadata["classifier_prompt"] = enriched_prompt
@@ -60,13 +62,17 @@ def llm_classifier_node(context: NodeContext):
 
         try:
             response = context.llm.generate_text(prompt)
+            print(f"🧮 Tokens usados: {response.get('tokens', {})}")
 
             raw_text = response.get("text", "")
-            intent = raw_text.strip().split("\n")[0].lower()
+            lines = [line.strip() for line in raw_text.strip().split("\n") if line.strip()]
+            intent = (lines[0] if lines else "desconocida").lower()
+            suggestion = lines[1] if len(lines) > 1 else ""
 
             state.intent = intent
-            state.llm_response = intent
+            state.llm_response = suggestion or intent
             state.metadata["classified_intent"] = intent
+            state.metadata["llm_suggestion"] = suggestion
             state.metadata["tokens_used"] = response.get("tokens", {})
             state.metadata["finish_reason"] = response.get(
                 "finish_reason", "UNKNOWN"
@@ -116,4 +122,7 @@ def actions_retriever_node(context: NodeContext):
             return state
 
     return node
+
+
+
 
