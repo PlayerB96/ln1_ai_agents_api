@@ -13,6 +13,7 @@ def build_graph():
     # Registra el nodo LLM para clasificación (segundo paso) / Envia classifier_prompt a Gemini.
     graph.add_node("llm_classifier", llm_classifier_node)
 
+    # Registra el nodo que recupera acciones (tercer paso) / Filtro de acciones segun intent identificado por llm_classifier.
     graph.add_node("actions_retriever", actions_retriever_node)
 
     # Punto de entrada: comienza con clasificación de reglas.
