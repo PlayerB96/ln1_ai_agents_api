@@ -7,15 +7,29 @@ class LangGraphOrchestrator:
     def __init__(self):
         # Construye y compila el pipeline de LangGraph para reutilizarlo.
         self.graph = build_graph()
+        if not hasattr(self.__class__, "_last_state_by_user"):
+            self.__class__._last_state_by_user = {}
 
     def run(self, payload: WsChatMessageRequest) -> ConversationState:
-        # Inicializa el estado de conversacion con el request entrante.
-        state = ConversationState(
-            payload=payload,
-            user_message=payload.message
-        )
+        last_state_by_user = self.__class__._last_state_by_user
+        previous_state = last_state_by_user.get(payload.code_user)
 
-        # Ejecuta el grafo; los nodos enriquecen/modifican el estado.
+        if previous_state:
+            # 🔥 Reusar estado anterior SIEMPRE
+            state = previous_state.model_copy(deep=True)
+            state.user_message = payload.message
+            state.payload = payload  # actualizar payload completo
+        else:
+            # Primera interacción
+            state = ConversationState(
+                payload=payload,
+                user_message=payload.message
+            )
+
         result = self.graph.invoke(state)
-        return ConversationState.model_validate(result)
-        # return self.graph.invoke(state)
+        validated = ConversationState.model_validate(result)
+
+        # 🔥 Guardar estado actualizado
+        last_state_by_user[payload.code_user] = validated
+
+        return validated

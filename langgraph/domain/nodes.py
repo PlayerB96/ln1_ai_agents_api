@@ -4,6 +4,44 @@ from langgraph.application.node_context import NodeContext
 import json
 
 
+def entry_router_node(context: NodeContext):
+
+    def node(state: ConversationState) -> ConversationState:
+        print("ENTRY ROUTER STEP:", state.step)
+        print("USER MESSAGE:", state.user_message)
+        print("PAYLOAD PARAMS:", state.payload.params_required)
+
+        # Detectar si el usuario está enviando params_required
+        if not state.payload.params_required and state.user_message:
+            try:
+                parsed_message = json.loads(state.user_message)
+                if isinstance(parsed_message, dict) and "params_required" in parsed_message:
+                    state.payload.params_required = parsed_message.get("params_required")
+            except json.JSONDecodeError:
+                pass
+
+        if state.payload.params_required:
+            state.step = "params_received"
+        else:
+            matched_actions = state.metadata.get("matched_actions", [])
+            valid_action_ids = {a.get("id") for a in matched_actions if a.get("id")}
+            if state.user_message and state.user_message in valid_action_ids:
+                state.step = "action_id_received"
+            else:
+                state.step = "normal_flow"
+        return state
+
+    return node
+
+
+def entry_router(state: ConversationState) -> str:
+    if state.step == "params_received":
+        return "params"
+    if state.step == "action_id_received":
+        return "action_select"
+    return "classify"
+
+
 def build_prompt_classifier_node(context: NodeContext):
 
     def node(state: ConversationState) -> ConversationState:
@@ -124,5 +162,86 @@ def actions_retriever_node(context: NodeContext):
     return node
 
 
+def action_selector_node(context: NodeContext):
+
+    def node(state: ConversationState) -> ConversationState:
+        user_input = (state.user_message or "").strip()
+        matched_actions = state.metadata.get("matched_actions", [])
+
+        # IDs válidos que se enviaron al usuario
+        valid_action_ids = {a.get("id") for a in matched_actions if a.get("id")}
+
+        if not user_input or user_input not in valid_action_ids:
+            state.step = "action_invalid"
+            state.metadata["selected_action"] = None
+            return state
+
+        # Acción válida
+        selected_action = next(
+            a for a in matched_actions if a["id"] == user_input
+        )
+
+        state.metadata["selected_action"] = selected_action
+        state.step = "action_selected"
+        return state
+
+    return node
 
 
+def execute_action_node(context: NodeContext):
+
+    def node(state: ConversationState) -> ConversationState:
+        action = state.metadata.get("selected_action")
+
+        # Construir objeto de parámetros requeridos (solo nombres de parámetros)
+        required_params = action.get("required", [])
+        params_required = {param: "" for param in required_params}
+        
+        state.metadata["params_required"] = params_required
+        state.llm_response = "Por favor rellena los siguientes parametros requeridos:"
+        state.step = "action_executed"
+        
+        return state
+
+    return node
+
+def action_selector_router(state: ConversationState) -> str:
+    if state.step == "action_selected":
+        return "valid"
+    return "wait"
+
+
+def params_processor_node(context: NodeContext):
+
+    def node(state: ConversationState) -> ConversationState:
+        # Procesar los parámetros recibidos del usuario
+        params_from_user = state.payload.params_required
+        
+        if params_from_user:
+            # Actualizar params_required con los datos del usuario
+            state.metadata["params_required"] = params_from_user
+            state.llm_response = "Por favor confirma la accion para iniciar con la accion"
+            state.step = "params_completed"
+        else:
+            state.step = "params_missing"
+        
+        return state
+
+    return node
+
+
+def params_router(state: ConversationState) -> str:
+    if state.step == "params_completed":
+        return "complete"
+    return "wait"
+
+
+def wait_for_user_input_node(context: NodeContext):
+
+    def node(state: ConversationState) -> ConversationState:
+        # No hace nada.
+        # El socket debe reinvocar el grafo con un nuevo user_message.
+        state.step = "waiting_user_input"
+        return state
+
+    return node

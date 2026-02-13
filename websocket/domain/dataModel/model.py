@@ -14,6 +14,7 @@ class WsChatMessageRequest(BaseModel):
     fullname: str
     area: str
     canal: str = "ws"
+    params_required: Optional[Dict[str, Any]] = None
 
 class WSSuccessResponse(BaseModel):
     success: bool = True

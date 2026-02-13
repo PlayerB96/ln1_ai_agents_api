@@ -1,4 +1,5 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+import json
 from websocket.domain.dataModel.model import WsChatMessageRequest
 from websocket.infrastructure.ws_controller import WSChatController
 from websocket.infrastructure.ws_security import WSSecurityManager
@@ -46,12 +47,26 @@ async def ia_agent_ws(websocket: WebSocket):
     try:
         while True:
             raw_message = await websocket.receive_text()
+
+            parsed_message = None
+            try:
+                parsed_message = json.loads(raw_message)
+            except json.JSONDecodeError:
+                parsed_message = None
+
+            params_required = None
+            message = raw_message
+            if isinstance(parsed_message, dict) and "params_required" in parsed_message:
+                params_required = parsed_message.get("params_required")
+                message = parsed_message.get("message", "")
+
             # ✅ Creamos el payload Pydantic
             payload = WsChatMessageRequest(
-                message=raw_message,
+                message=message,
                 code_user=code_user,
                 fullname=fullname,
                 area=area,
+                params_required=params_required
             )
             # Enviamos el payload al controlador
             controller = WSChatController(payload=payload)
