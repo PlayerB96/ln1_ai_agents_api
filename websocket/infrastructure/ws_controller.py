@@ -9,10 +9,11 @@ class WSChatController:
         self.langgraph = LangGraphController(payload)
 
     def wsController(self):
+
         wsresponse = self.wsresponse.process_request()
 
-        if wsresponse.success:
-            # ✅ enviar payload completo a LangGraph
-            conversation_state  = self.langgraph.langController()
+        if not wsresponse.success:
+            return wsresponse
 
+        conversation_state = self.langgraph.langController()
         return conversation_state
